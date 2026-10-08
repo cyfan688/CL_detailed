@@ -87,25 +87,19 @@ else {
 
 Check the `MODEL` setting in the Python script before running.
 
-Start with one BM25 request:
-
-```powershell
-py -X utf8 longmemeval_starter.py --data longmemeval_s_cleaned.json --conditions bm25 --run --max-calls 1 --results debug_results.jsonl
-```
-
 Run all three conditions for the selected questions:
 
 ```powershell
-py -X utf8 longmemeval_starter.py --data longmemeval_s_cleaned.json --run --max-calls 75 --results formal_results.jsonl
+py -X utf8 longmemeval_starter.py --data longmemeval_s_cleaned.json --run --max-calls 15 --results debug_results.jsonl
 ```
 
 Important:
 
-- `--run` enables API calls and may incur charges.
-- `--max-calls 75` allows at most 75 new requests in this execution. It does not select 25 questions.
-- The number of questions is determined by the question-selection code or `--ids`.
-- With 25 questions and three conditions, a complete evaluation contains 75 tasks.
-- Previously recorded tasks may be skipped.
+By default, the script selects five questions, one from each of five question types.
+
+Each question is evaluated under three conditions, giving 15 tasks in total.
+
+`--max-calls 15` allows at most 15 new API requests in this execution. Tasks with saved results are skipped.
 
 To select specific questions, replace the example IDs below with real dataset IDs:
 
