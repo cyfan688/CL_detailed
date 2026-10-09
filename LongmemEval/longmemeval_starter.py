@@ -26,7 +26,7 @@ from collections import Counter
 from pathlib import Path
 
 
-MODEL = "gpt-6.1-sol"
+MODEL = "gpt-6-luna"
 HISTORY_TOKEN_BUDGET = 8000
 INPUT_TOKEN_GUARD = 9000
 MAX_OUTPUT_TOKENS = 1024
@@ -329,7 +329,7 @@ def main():
         count += 1
         try:
             response = client.responses.create(
-                model=MODEL, reasoning={"effort": "medium"},
+                model=MODEL, reasoning={"effort": "none"},
                 max_output_tokens=MAX_OUTPUT_TOKENS, input=prompt,
             )
         except Exception as exc:
