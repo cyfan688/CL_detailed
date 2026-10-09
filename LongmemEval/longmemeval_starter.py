@@ -18,6 +18,7 @@ Results are append-only in results.jsonl; never put your API key in a file.
 import argparse
 import json
 import math
+import random
 import os
 import re
 import sys
@@ -25,7 +26,7 @@ from collections import Counter
 from pathlib import Path
 
 
-MODEL = "gpt-6-luna"
+MODEL = "gpt-6.1-sol"
 HISTORY_TOKEN_BUDGET = 8000
 INPUT_TOKEN_GUARD = 9000
 MAX_OUTPUT_TOKENS = 1024
@@ -207,7 +208,7 @@ def self_test():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data", type=Path, help="Path to longmemeval_s_cleaned.json")
-    parser.add_argument("--ids", nargs="+", help="Explicit question IDs; default: five different types")
+    parser.add_argument("--ids",nargs="+",help="Explicit question IDs; default: five per type, 25 total")
     parser.add_argument("--conditions", nargs="+", choices=CONDITIONS, default=list(CONDITIONS))
     parser.add_argument("--results", type=Path, default=Path("results.jsonl"))
     parser.add_argument("--max-calls", type=int, default=1, help="Maximum NEW API calls this execution may start")
@@ -223,7 +224,17 @@ def main():
     if not 1 <= args.max_calls <= 105:
         parser.error("--max-calls must be 1..105")
     enc = tokenizer()
-    rows = choose_questions(load_data(args.data), args.ids)
+    data = load_data(args.data)
+    fixed_ids = [
+        "caf9ead2", "a06e4cfe", "25e5aa4f", "58bf7951", "86b68151",
+        "18dcd5a5", "e48988bc", "c7cf7dfd", "6222b6eb", "c4f10528",
+        "ce6d2d27", "a2f3aa27", "f685340e", "26bdc477", "3ba21379",
+        "gpt4_d6585ce8", "gpt4_2312f94c", "4dfccbf7",
+        "gpt4_8279ba03", "993da5e2",
+        "bf659f65", "5a7937c8", "e25c3b8d", "c2ac3c61", "2b8f3739",
+    ]
+    rows = choose_questions(data, fixed_ids)
+    print("Selected question IDs:", [row["question_id"] for row in rows])
     jobs = []
     for row in rows:
         for condition in dict.fromkeys(args.conditions):
@@ -273,7 +284,7 @@ def main():
         count += 1
         try:
             response = client.responses.create(
-                model=MODEL, reasoning={"effort": "none"},
+                model=MODEL, reasoning={"effort": "medium"},
                 max_output_tokens=MAX_OUTPUT_TOKENS, input=prompt,
             )
         except Exception as exc:
