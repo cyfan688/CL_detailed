@@ -1,0 +1,2 @@
+{"question_id": "6a1eabeb", "question_type": "knowledge-update", "condition": "bm25", "model": "gpt-6.1-sol", "prompt_version": "starter-v1", "selected_session_ids": ["answer_a25d4a91_1", "sharegpt_kIqZ0wa_0", "answer_a25d4a91_2"], "local_input_token_estimate": 7634}
+{"question_id": "6a1eabeb", "question_type": "knowledge-update", "condition": "bm25", "model": "gpt-6.1-sol", "prompt_version": "starter-v1", "selected_session_ids": ["answer_a25d4a91_1", "sharegpt_kIqZ0wa_0", "answer_a25d4a91_2"], "local_input_token_estimate": 7634}
