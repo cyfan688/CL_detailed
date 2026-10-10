@@ -253,31 +253,6 @@ def main():
             rng.shuffle(candidates)
             ids.extend(candidates[:5])
 
-        rows = choose_questions(data, ids)
-    types = (
-        "single-session-user",
-        "single-session-assistant",
-        "knowledge-update",
-        "temporal-reasoning",
-        "multi-session",
-    )
-
-    ids = []
-
-    for kind in types:
-        candidates = [
-            row["question_id"]
-            for row in data
-            if row["question_type"] == kind
-            and not str(row["question_id"]).endswith("_abs")
-        ]
-
-        if len(candidates) < 5:
-            raise ValueError(f"{kind} 不足 5 道题")
-
-        rng.shuffle(candidates)
-        ids.extend(candidates[:5])
-
     rows = choose_questions(data, ids)
     print("Selected question IDs:", [row["question_id"] for row in rows])
     jobs = []
