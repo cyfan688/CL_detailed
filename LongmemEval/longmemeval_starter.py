@@ -103,7 +103,7 @@ def sessions_for(row):
 def bm25_order(question, sessions):
     #parameters
     k1 = 1.2
-    b = 0.75
+    b = 0.25
 
     #use set() to remove duplicates in question
     query = set(words(question))
@@ -123,7 +123,7 @@ def bm25_order(question, sessions):
             count = counts[term]
             if count:
                 idf = math.log(1 + (len(docs) - df[term] + 0.5) / (df[term] + 0.5))
-                total += idf * count * (k1 + 1) / (count + k1 * (b + (1 - b) * lengths[i] / max(avg, 1)))
+                total += idf * count * (k1 + 1) / (count + k1 * ((1 - b) + b * lengths[i] / max(avg, 1)))
         return total
 
     return sorted(range(len(sessions)), key=lambda i: (-score(i), i))
