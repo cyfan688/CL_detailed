@@ -252,8 +252,7 @@ def main():
 
             rng.shuffle(candidates)
             ids.extend(candidates[:5])
-
-    rows = choose_questions(data, ids)
+        rows = choose_questions(data, ids)
     print("Selected question IDs:", [row["question_id"] for row in rows])
     jobs = []
     for row in rows:
