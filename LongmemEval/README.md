@@ -176,6 +176,74 @@ Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
 
 This removes the environment variable from the current PowerShell session. It does not revoke the key on the API platform.
 
+## 11. Compare output token usage
+
+Run the following code using `results_25.jsonl`, `results_25_luna_medium.jsonl`, and `results_25_sol.jsonl` to compare output token usage across the three settings.
+```
+@'
+import json
+from pathlib import Path
+
+files = {
+    "Luna none": Path("results_25.jsonl"),
+    "Luna medium": Path("results_25_luna_medium.jsonl"),
+    "Sol medium": Path("results_25_sol.jsonl")
+}
+
+groups = {}
+
+for name, path in files.items():
+    with path.open(encoding="utf-8-sig") as f:
+        rows = [
+            json.loads(line)
+            for line in f
+            if line.strip()
+        ]
+
+    rows = [r for r in rows if r["condition"] == "bm25"]
+    ids = [r["question_id"] for r in rows]
+
+    if len(ids) != len(set(ids)):
+        raise SystemExit(f"{name}: duplicate question IDs found.")
+    if any(r.get("status") != "completed" for r in rows):
+        raise SystemExit(f"{name}: unfinished responses found.")
+
+    groups[name] = {r["question_id"]: r for r in rows}
+
+none = groups["Luna none"]
+medium1 = groups["Luna medium"]
+medium2 = groups["Sol medium"]
+
+if set(none) != set(medium1) or set(none) != set(medium2) or not none:
+    raise SystemExit("The three files do not contain the same nonempty question set.")
+
+totals = {}
+for name, rows in groups.items():
+    values = [r["output_tokens"] for r in rows.values()]
+    totals[name] = sum(values)
+    print(f"{name}:")
+    print(f"  Questions: {len(values)}")
+    print(f"  Total output tokens: {sum(values):,}")
+    print(f"  Mean output tokens: {sum(values)/len(values):.2f}")
+    print(f"  Range: {min(values)}--{max(values)}")
+
+a = totals["Luna none"]
+b = totals["Luna medium"]
+c = totals["Sol medium"]
+
+print(f"\nAdditional output tokens(Luna): {b-a:+,}")
+print(f"\nAdditional output tokens(Sol): {c-a:+,}")
+
+if a:
+    print(f"Luna-Medium / Luna-none: {b/a:.2f}x")
+    print(f"Increase: {(b-a)/a*100:.2f}%")
+    print(f"Sol-Medium / Luna-none: {c/a:.2f}x")
+    print(f"Increase: {(c-a)/a*100:.2f}%")
+
+'@ | python -
+```
+
+
 ## Notes
 
 - File names and paths can be changed, but all corresponding commands must be updated.
