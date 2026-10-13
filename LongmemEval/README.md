@@ -95,9 +95,9 @@ py -X utf8 longmemeval_starter.py --data longmemeval_s_cleaned.json --run --max-
 
 Important:
 
-By default, the script selects five questions, one from each of five question types.
+By default, the script selects five questions from each of five question types, giving 25 questions.
 
-Each question is evaluated under three conditions, giving 15 tasks in total.
+Each question is evaluated under three conditions, giving 75 tasks in total. To run a separate five-question debugging set, supply five question IDs with `--ids`.
 
 `--max-calls 15` allows at most 15 new API requests in this execution. Tasks with saved results are skipped.
 
