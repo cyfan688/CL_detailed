@@ -250,3 +250,62 @@ if a:
 - History selection uses whole sessions. A session that exceeds the remaining budget is skipped.
 - The history token budget does not include all instructions and question text.
 - Local token counts are estimates; API-reported usage is saved separately.
+
+
+---
+
+## 12. Sanitized BM25 and Oracle diagnostics (follow-up study)
+
+**Status:** These commands use the newer diagnostic runner, \`longmemeval_starter_v4_duplicate_safe.py\`, which is separate from the original \`longmemeval_starter.py\` described above. The new runner and \`evidence_analysis.py\` are prepared locally and will be uploaded separately. Until those files are uploaded, their commands will not work on a fresh clone.
+
+### Why the runner changed
+
+The original history formatter included raw session IDs such as \`answer_...\` in both the BM25 retrieval text and the model prompt. Because those IDs can indicate answer-bearing evidence, the newer runner replaces them with neutral sequential session numbers. Original IDs are retained only in evaluation metadata/logs, where they are needed for evidence coverage and Oracle selection.
+
+The follow-up experiment uses the **same fixed 25 questions** as the earlier study, with a **BM25 history budget of 8,000 tokens**. For every question, it records whether the retrieved history contains **all**, **some**, or **none** of the annotated supporting sessions, as well as the per-question evidence recall.
+
+### Run the sanitized BM25 comparison
+
+From PowerShell in \`LongmemEval\` (with the new runner and dataset present):
+
+\`\`\`powershell
+py -m pip install openai tiktoken
+py .\longmemeval_starter_v4_duplicate_safe.py --self-test
+
+# Free prompt preview (does not call the API)
+py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none > preview_bm25.txt
+
+# Paid experiments, 25 calls per effort (requires OPENAI_API_KEY)
+py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none --run --max-calls 25 --results bm25_none.jsonl
+py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort medium --run --max-calls 25 --results bm25_medium.jsonl
+\`\`\`
+
+Use separate result files for none and medium. Results and attempt logs are append-only; completed jobs are skipped when rerunning with the same settings. Manual correctness grading is still required: \`status="completed"\` alone does not mean the answer is correct.
+
+### Oracle: supply annotated supporting sessions
+
+Use the \`oracle\` condition on **previously identified failed question IDs**. The model receives the annotated supporting session texts, not the gold reference answer or annotation markers. For example, substitute your own failed IDs:
+
+\`\`\`powershell
+# Free Oracle preview
+py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 > preview_oracle.txt
+
+# Paid Oracle requests
+py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 --run --max-calls 2 --results oracle_medium.jsonl
+\`\`\`
+
+**Configurable Oracle input limit:** the default full-prompt guard is 9,000 estimated input tokens. Pass \`--oracle-max-input-tokens 18000\` (or another checked value) when all annotated evidence would exceed that guard. **This changes only the Oracle full-input safety threshold; it does not change the 8,000-token BM25 history budget.** Verify the model's supported context window and anticipated cost before increasing the limit. Inspect skipped cases in preview. Some Oracle histories exceed 8,000 tokens; consequently Oracle is a diagnostic **not a strict equal-budget accuracy comparison**. Oracle also removes distractor sessions.
+
+### Summarize evidence coverage, recall, and correctness
+
+The separately uploaded \`evidence_analysis.py\` is an **offline, standard-library-only** result summarizer. Put it beside the JSONL files (or pass explicit paths):
+
+\`\`\`powershell
+py .\evidence_analysis.py
+py .\evidence_analysis.py bm25_none.jsonl bm25_medium.jsonl
+py .\evidence_analysis.py oracle_none.jsonl oracle_medium.jsonl
+\`\`\`
+
+The updated script reads files relative to its own directory when needed, selects only completed BM25/Oracle records, checks duplicate question IDs, and prints the **all/some/none** distribution and **mean per-question evidence recall (macro recall)**. If every result includes a manually assigned \`correct\` value of 0/1, it also reports accuracy. If labels are missing or null, it reports that correctness is not fully graded rather than pretending the run's accuracy is zero.
+
+In this 25-question follow-up, BM25 found all supporting sessions for 19 questions, some for 3, none for 3; mean evidence recall was **0.816**. Strict benchmark accuracy was **13/25 (none)** and **18/25 (medium)**. Six medium-effort BM25 failures with incomplete evidence were then tested with Oracle: **4/6** were correct with medium and **2/6** with none under strict reference scoring. Two of the remaining medium Oracle failures appear to involve ambiguous support/reference answers; report this separately from the benchmark score.
