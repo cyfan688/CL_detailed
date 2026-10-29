@@ -256,7 +256,7 @@ if a:
 
 ## 12. Sanitized BM25 and Oracle diagnostics (follow-up study)
 
-**Status:** These commands use the newer diagnostic runner, \`longmemeval_starter_v4_duplicate_safe.py\`, which is separate from the original \`longmemeval_starter.py\` described above. The new runner and \`evidence_analysis.py\` are prepared locally and will be uploaded separately. Until those files are uploaded, their commands will not work on a fresh clone.
+**Status:** These commands use the newer diagnostic runner, \`longmemeval_starter_v3.py\`, which is separate from the original \`longmemeval_starter.py\` described above. The new runner and \`evidence_analysis.py\` are prepared locally and will be uploaded separately.
 
 ### Why the runner changed
 
@@ -270,14 +270,14 @@ From PowerShell in \`LongmemEval\` (with the new runner and dataset present):
 
 \`\`\`powershell
 py -m pip install openai tiktoken
-py .\longmemeval_starter_v4_duplicate_safe.py --self-test
+py .\longmemeval_starter_v3.py --self-test
 
 # Free prompt preview (does not call the API)
-py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none > preview_bm25.txt
+py -X utf8 .\longmemeval_starter_v3.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none > preview_bm25.txt
 
 # Paid experiments, 25 calls per effort (requires OPENAI_API_KEY)
-py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none --run --max-calls 25 --results bm25_none.jsonl
-py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort medium --run --max-calls 25 --results bm25_medium.jsonl
+py -X utf8 .\longmemeval_starter_v3.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort none --run --max-calls 25 --results bm25_none.jsonl
+py -X utf8 .\longmemeval_starter_v3.py --data .\longmemeval_s_cleaned.json --conditions bm25 --effort medium --run --max-calls 25 --results bm25_medium.jsonl
 \`\`\`
 
 Use separate result files for none and medium. Results and attempt logs are append-only; completed jobs are skipped when rerunning with the same settings. Manual correctness grading is still required: \`status="completed"\` alone does not mean the answer is correct.
@@ -288,10 +288,10 @@ Use the \`oracle\` condition on **previously identified failed question IDs**. T
 
 \`\`\`powershell
 # Free Oracle preview
-py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 > preview_oracle.txt
+py -X utf8 .\longmemeval_starter_v3.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 > preview_oracle.txt
 
 # Paid Oracle requests
-py -X utf8 .\longmemeval_starter_v4_duplicate_safe.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 --run --max-calls 2 --results oracle_medium.jsonl
+py -X utf8 .\longmemeval_starter_v3.py --data .\longmemeval_s_cleaned.json --conditions oracle --ids 3ba21379 gpt4_8279ba03 --effort medium --oracle-max-input-tokens 18000 --run --max-calls 2 --results oracle_medium.jsonl
 \`\`\`
 
 **Configurable Oracle input limit:** the default full-prompt guard is 9,000 estimated input tokens. Pass \`--oracle-max-input-tokens 18000\` (or another checked value) when all annotated evidence would exceed that guard. **This changes only the Oracle full-input safety threshold; it does not change the 8,000-token BM25 history budget.** Verify the model's supported context window and anticipated cost before increasing the limit. Inspect skipped cases in preview. Some Oracle histories exceed 8,000 tokens; consequently Oracle is a diagnostic **not a strict equal-budget accuracy comparison**. Oracle also removes distractor sessions.
