@@ -309,3 +309,83 @@ py .\evidence_analysis.py oracle_none.jsonl oracle_medium.jsonl
 The updated script reads files relative to its own directory when needed, selects only completed BM25/Oracle records, checks duplicate question IDs, and prints the **all/some/none** distribution and **mean per-question evidence recall (macro recall)**. If every result includes a manually assigned \`correct\` value of 0/1, it also reports accuracy. If labels are missing or null, it reports that correctness is not fully graded rather than pretending the run's accuracy is zero.
 
 In this 25-question follow-up, BM25 found all supporting sessions for 19 questions, some for 3, none for 3; mean evidence recall was **0.816**. Strict benchmark accuracy was **13/25 (none)** and **18/25 (medium)**. Six medium-effort BM25 failures with incomplete evidence were then tested with Oracle: **4/6** were correct with medium and **2/6** with none under strict reference scoring. Two of the remaining medium Oracle failures appear to involve ambiguous support/reference answers; report this separately from the benchmark score.
+
+---
+
+## 13. Dense, DPR, and Hybrid retrieval follow-up (November 2026)
+
+**Status (2026-11-15):** The *local* retrieval diagnostic is complete for the same fixed 25 LongMemEval-S questions. The GPT answer-generation experiment for the new Hybrid condition has **not yet been reported**. The updated runner, `longmemeval_starter_v3_75_fixed.py`, is **not yet uploaded to this repository**; the commands in this section become runnable after that file is added to the `LongmemEval/` directory. Do not confuse these retrieval statistics with answer accuracy.
+
+### Retrieval configurations
+
+| Condition | Retrieval method | Relevance / fusion |
+|---|---|---|
+| `dense` | Pretrained `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` | Cosine similarity |
+| `dpr` | Pretrained Facebook DPR question + context encoders (`*-single-nq-base`) | Dot product |
+| `hybrid` | BM25 + the MiniLM dense retriever | Reciprocal Rank Fusion (RRF), `k=60` |
+
+The Hybrid score for a session `s` is:
+
+```text
+RRF(s) = 1 / (60 + rank_BM25(s)) + 1 / (60 + rank_MiniLM(s))
+```
+
+Both ranks are **1-based**. `--hybrid-backend dense` specifies MiniLM (the current Hybrid baseline); `--hybrid-backend dpr` is an optional alternative and **is not** the setting of the results below.
+
+Long sessions are divided into overlapping passages for semantic encoding (`RETRIEVAL_CHUNK_TOKENS=256`, `RETRIEVAL_CHUNK_OVERLAP=32`; effective content capacity accounts for model special tokens). Each session's semantic relevance is its **maximum passage score**. The selected material sent to the answer model is still the **whole session**, chosen greedily within the existing **8,000-token history budget** and then shown in chronological order. Very long sessions may therefore be skipped even if one passage scores highly.
+
+The retrievers use sanitized session text (date, roles and conversational content), not raw session IDs or `has_answer` / `answer_session_ids` annotations. Raw IDs are kept for offline evidence evaluation and logging, not for the retrieval or answer-generation input. Gold evidence IDs are used only when computing diagnostic coverage (or explicitly in the separate Oracle condition).
+
+### Local retrieval results: fixed 25 questions
+
+These figures come from the **free** `--summary-only` retrieval diagnostic, before any new GPT Hybrid answers were graded:
+
+| Condition | All supporting sessions | Some | None | Mean gold-session recall (macro) |
+|---|---:|---:|---:|---:|
+| MiniLM Dense | 17/25 | 7/25 | 1/25 | 0.8227 |
+| DPR | 15/25 | 9/25 | 1/25 | 0.7693 |
+| **Hybrid (BM25 + MiniLM)** | **19/25** | **5/25** | **1/25** | **0.8627** |
+
+- **All** means every annotated supporting session is present in the selected history; **some** means at least one but not all; **none** means no annotated supporting session was selected.
+- **Macro recall** is the arithmetic mean of the per-question fraction of annotated supporting sessions retrieved, not the fraction of correct model-generated answers.
+- The Hybrid configuration performs best among these **three tested semantic configurations** on this 25-question subset. This does not establish statistical significance, nor does it establish an improvement over the historical BM25 experiment documented above, which may use a different runner/formatting configuration.
+- **Hybrid GPT answer accuracy: pending**; it will be reported separately after the 25 answer-generation calls and manual grading.
+
+### Reproduce the diagnostic (Windows PowerShell)
+
+Run these commands in the folder containing `longmemeval_s_cleaned.json` and the **locally available** `longmemeval_starter_v3_75_fixed.py`. After the runner is committed, these commands can be used directly from the cloned `LongmemEval/` directory.
+
+```powershell
+# Once per Python environment (also downloads pretrained model weights on first use)
+py -m pip install openai tiktoken numpy sentence-transformers transformers torch
+
+# Local self-test; does not call OpenAI
+py .\longmemeval_starter_v3_75_fixed.py --self-test
+
+# Hybrid-only retrieval diagnostics; no OpenAI API requests
+py -X utf8 .\longmemeval_starter_v3_75_fixed.py --data .\longmemeval_s_cleaned.json --conditions hybrid --hybrid-backend dense --effort medium --summary-only
+
+# Optional: reproduce the three-row retrieval comparison above
+py -X utf8 .\longmemeval_starter_v3_75_fixed.py --data .\longmemeval_s_cleaned.json --conditions dense dpr hybrid --hybrid-backend dense --effort medium --summary-only
+```
+
+The first run may download MiniLM and/or DPR weights from Hugging Face and perform local CPU inference. The unauthenticated HF Hub and Windows symlink notices are warnings, not OpenAI API requests. `--effort medium` is an answer-model setting; it does not change the local retrieval scores.
+
+### Hybrid-only GPT evaluation: 25 calls at medium effort
+
+Before running, set `OPENAI_API_KEY` in your own terminal using the secure instructions in Section 5, and verify that the runner's `MODEL` is the intended `gpt-6-luna`. **This command makes paid requests**:
+
+```powershell
+py -X utf8 .\longmemeval_starter_v3_75_fixed.py --data .\longmemeval_s_cleaned.json --conditions hybrid --hybrid-backend dense --effort medium --run --max-calls 25 --results hybrid_medium_rrf.jsonl
+```
+
+With no `--ids`, the runner uses the same fixed 25 question IDs. `--max-calls 25` caps **new request attempts**, not guaranteed completed answers. Expected local outputs:
+
+| File | Purpose |
+|---|---|
+| `hybrid_medium_rrf.jsonl` | Completed/saved model responses and retrieval metadata |
+| `hybrid_medium_rrf.attempts.jsonl` | Pre-request attempt records, useful for interrupted runs |
+
+The runner appends rather than replacing records and skips previously completed jobs. If a request's outcome is uncertain, inspect the attempt log and API usage **before** considering `--retry-uncertain`. Use distinct result filenames when changing a retrieval backend or other experimental parameters. Reference answers must remain offline; accuracy requires independent grading and must not be inferred from `status="completed"`.
+
+**Next steps:** Upload the tested runner separately, then add the Hybrid answer-generation results and manually graded accuracy when available. Do not commit API keys, the full benchmark dataset, or private caches.
